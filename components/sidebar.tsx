@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { ConnectWallet } from "@/components/connect-wallet"
 
 // Import icons
-import { Home, LayoutDashboard, ShoppingCart, Coins, PiggyBank, Banknote } from "lucide-react"
+import { LayoutDashboard, ShoppingCart, Coins, PiggyBank, Banknote } from "lucide-react"
 
 const styles = {
   sidebar: {
@@ -27,18 +27,16 @@ const styles = {
   logo: {
     display: "flex",
     alignItems: "center",
-    gap: "0.5rem",
+    gap: "0.75rem",
   },
   logoIcon: {
-    height: "2rem",
-    width: "2rem",
-    borderRadius: "9999px",
-    backgroundColor: "#ff6b00", // Orange logo
+    height: "2.5rem",
+    width: "2.5rem",
+    backgroundColor: "#ff6b00", // Orange background
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "1.25rem",
-    fontWeight: "bold",
+    overflow: "hidden",
   },
   logoText: {
     fontWeight: "bold",
@@ -86,11 +84,58 @@ const styles = {
   },
 }
 
+// Inline SVG Kolam pattern
+const KolamLogo = () => (
+  <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    {/* Black diamond pattern with white outlines */}
+    <g fill="black" stroke="white" strokeWidth="2">
+      {/* Center diamond */}
+      <path d="M50,30 L70,50 L50,70 L30,50 Z" />
+
+      {/* Top diamond */}
+      <path d="M50,10 L60,20 L50,30 L40,20 Z" />
+
+      {/* Right diamond */}
+      <path d="M70,50 L80,60 L70,70 L60,60 Z" />
+
+      {/* Bottom diamond */}
+      <path d="M50,70 L60,80 L50,90 L40,80 Z" />
+
+      {/* Left diamond */}
+      <path d="M30,50 L40,60 L30,70 L20,60 Z" />
+
+      {/* Top-right diamond */}
+      <path d="M60,20 L70,30 L60,40 L50,30 Z" />
+
+      {/* Bottom-right diamond */}
+      <path d="M60,60 L70,70 L60,80 L50,70 Z" />
+
+      {/* Bottom-left diamond */}
+      <path d="M40,60 L50,70 L40,80 L30,70 Z" />
+
+      {/* Top-left diamond */}
+      <path d="M40,20 L50,30 L40,40 L30,30 Z" />
+    </g>
+
+    {/* White dots in the center of each diamond */}
+    <g fill="white">
+      <circle cx="50" cy="50" r="2" />
+      <circle cx="50" cy="20" r="2" />
+      <circle cx="70" cy="50" r="2" />
+      <circle cx="50" cy="80" r="2" />
+      <circle cx="30" cy="50" r="2" />
+      <circle cx="60" cy="30" r="2" />
+      <circle cx="60" cy="70" r="2" />
+      <circle cx="40" cy="70" r="2" />
+      <circle cx="40" cy="30" r="2" />
+    </g>
+  </svg>
+)
+
 export function Sidebar() {
   const pathname = usePathname()
 
   const navItems = [
-    { path: "/", label: "Home", icon: Home },
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/buy-assets", label: "Buy Assets", icon: ShoppingCart },
     { path: "/staking", label: "Staking", icon: Coins },
@@ -102,7 +147,9 @@ export function Sidebar() {
     <aside style={styles.sidebar}>
       <div style={styles.header}>
         <div style={styles.logo}>
-          <div style={styles.logoIcon}>K</div>
+          <div style={styles.logoIcon}>
+            <KolamLogo />
+          </div>
           <span style={styles.logoText}>Kolam Prosper</span>
         </div>
       </div>

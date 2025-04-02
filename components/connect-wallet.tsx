@@ -16,6 +16,8 @@ const styles = {
     transition: "background-color 0.2s",
     fontSize: "0.875rem",
     width: "100%",
+    display: "block", // Changed from inline to block
+    textAlign: "center" as const,
   },
   buttonHover: {
     backgroundColor: "#e05e00", // Darker orange on hover
