@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import { Providers } from "@/components/providers"
 import { Sidebar } from "@/components/sidebar"
 
+// Initialize the Inter font
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.className}>
       <body
         style={{
           margin: 0,
