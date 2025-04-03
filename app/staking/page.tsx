@@ -333,18 +333,19 @@ const styles = {
   },
   select: {
     width: "100%",
-    padding: "0.75rem",
+    padding: "0.75rem 1rem",
     backgroundColor: "#1a1a1a",
+    color: "#ffffff",
     border: "1px solid #333333",
     borderRadius: "0.375rem",
-    color: "#ffffff",
-    fontSize: "1rem",
-    appearance: "none",
+    fontSize: "0.875rem",
+    appearance: "none" as const, // Change this line to use 'as const'
     backgroundImage:
-      'url(\'data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>\')',
+      'url(\'data:image/svg+xml;utf8,<svg fill="%23ffffff" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>\')',
     backgroundRepeat: "no-repeat",
     backgroundPosition: "right 0.75rem center",
-    backgroundSize: "1rem",
+    backgroundSize: "1.5rem",
+    outline: "none",
   },
   button: {
     backgroundColor: "#ff6b00", // Orange button
@@ -603,8 +604,9 @@ export default function Staking() {
                 functionName: "balanceOf",
                 args: [address, BigInt(id)],
               })
-              .then((balance: bigint) => {
-                if (balance > 0n) {
+              .then((balance) => {
+                const balanceAsBigInt = balance as bigint
+                if (balanceAsBigInt > BigInt(0)) {
                   // Get NFT tier (mock for now)
                   const tier = 1 // T-Bonds are Tier 1
                   const value = 1000 // $1,000 per T-Bond
@@ -617,9 +619,9 @@ export default function Staking() {
                     value,
                   })
                 }
-                return balance
+                return balanceAsBigInt
               })
-              .catch(() => 0n), // Ignore errors for individual token IDs
+              .catch(() => BigInt(0)), // Ignore errors for individual token IDs
           )
         }
 
@@ -641,8 +643,9 @@ export default function Staking() {
                 functionName: "balanceOf",
                 args: [address, BigInt(id)],
               })
-              .then((balance: bigint) => {
-                if (balance > 0n) {
+              .then((balance) => {
+                const balanceAsBigInt = balance as bigint
+                if (balanceAsBigInt > BigInt(0)) {
                   // Get NFT tier (mock for now)
                   const tier = 2 // Property Deeds are Tier 2
                   const value = 100000 // $100,000 per Property Deed
@@ -655,9 +658,9 @@ export default function Staking() {
                     value,
                   })
                 }
-                return balance
+                return balanceAsBigInt
               })
-              .catch(() => 0n), // Ignore errors for individual token IDs
+              .catch(() => BigInt(0)), // Ignore errors for individual token IDs
           )
         }
 
@@ -723,7 +726,8 @@ export default function Staking() {
       const stakedItems: StakedNFT[] = []
 
       for (let i = 0; i < nftContracts.length; i++) {
-        const contract = nftContracts[i]
+        // Using contractAddress instead of contract to avoid ESLint warning
+        const contractAddress = nftContracts[i]
         const tokenId = Number(tokenIds[i])
         const stakeTime = Number(stakeTimes[i])
         const lockDuration = Number(lockDurations[i])
@@ -734,11 +738,11 @@ export default function Staking() {
         let tier: number
         let value: number
 
-        if (contract.toLowerCase() === TBOND_CONTRACT_ADDRESS.toLowerCase()) {
+        if (contractAddress.toLowerCase() === TBOND_CONTRACT_ADDRESS.toLowerCase()) {
           type = "tbond"
           tier = 1
           value = 1000
-        } else if (contract.toLowerCase() === PROPERTY_DEED_CONTRACT_ADDRESS.toLowerCase()) {
+        } else if (contractAddress.toLowerCase() === PROPERTY_DEED_CONTRACT_ADDRESS.toLowerCase()) {
           type = "property-deed"
           tier = 2
           value = 100000
@@ -753,7 +757,7 @@ export default function Staking() {
         const reward = (value * unlockPercentage) / 100
 
         stakedItems.push({
-          contract,
+          contract: contractAddress,
           tokenId,
           stakeTime,
           lockDuration,
@@ -969,7 +973,7 @@ export default function Staking() {
         })
 
         // Process each contract's NFTs
-        for (const [contract, nfts] of Object.entries(nftsByContract)) {
+        for (const [, nfts] of Object.entries(nftsByContract)) {
           for (const nft of nfts) {
             const { request } = await publicClient.simulateContract({
               address: NFT_STAKING_VAULT_ADDRESS as `0x${string}`,
@@ -1023,7 +1027,7 @@ export default function Staking() {
         } else if (errorStr.includes("user rejected")) {
           errorMessage = "Transaction was rejected in your wallet."
         } else if (errorStr.includes("insufficient funds")) {
-          errorMessage = "You don't have enough ETH to pay for gas fees."
+          errorMessage = "You don&apos;t have enough ETH to pay for gas fees."
         } else {
           errorMessage += error.message
         }
@@ -1099,7 +1103,7 @@ export default function Staking() {
         } else if (errorStr.includes("user rejected")) {
           errorMessage = "Transaction was rejected in your wallet."
         } else if (errorStr.includes("insufficient funds")) {
-          errorMessage = "You don't have enough ETH to pay for gas fees."
+          errorMessage = "You don&apos;t have enough ETH to pay for gas fees."
         } else {
           errorMessage += error.message
         }
@@ -1172,7 +1176,8 @@ export default function Staking() {
             <div style={styles.infoTitle}>About NFT Staking</div>
             <div style={styles.infoText}>
               Stake your T-Bonds and Property Deeds to earn AED LST tokens. The longer you lock your NFTs, the higher
-              the percentage of tokens you'll receive. You can unstake your NFTs at any time after the lock period ends.
+              the percentage of tokens you&apos;ll receive. You can unstake your NFTs at any time after the lock period
+              ends.
             </div>
           </div>
 
@@ -1365,7 +1370,7 @@ export default function Staking() {
                   </div>
                 ) : (
                   <div style={styles.emptyState}>
-                    <p style={styles.emptyStateMessage}>You don't have any NFTs to stake</p>
+                    <p style={styles.emptyStateMessage}>You don&apos;t own any NFTs to stake</p>
                     <p style={styles.emptyStateSubMessage}>Purchase T-Bonds or Property Deeds to start staking</p>
                   </div>
                 )}
@@ -1504,7 +1509,7 @@ export default function Staking() {
                   </div>
                 ) : (
                   <div style={styles.emptyState}>
-                    <p style={styles.emptyStateMessage}>You don't have any staked NFTs</p>
+                    <p style={styles.emptyStateMessage}>You don&apos;t have any staked NFTs</p>
                     <p style={styles.emptyStateSubMessage}>
                       Stake your T-Bonds or Property Deeds to earn AED LST tokens
                     </p>

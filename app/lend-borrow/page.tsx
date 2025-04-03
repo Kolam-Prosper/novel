@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAssetCount } from "@/components/asset-counter"
 import { useAccount } from "wagmi"
 import { usePublicClient, useWalletClient } from "wagmi"
@@ -306,15 +306,15 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     marginBottom: "2rem",
-    position: "relative",
+    position: "relative" as const,
     borderBottom: "1px solid #333333",
     paddingBottom: "1.5rem", // Increased padding to avoid text overlap with progress line
-    flexWrap: "nowrap",
+    flexWrap: "nowrap" as const,
   },
   stepItem: {
     display: "flex",
     alignItems: "center",
-    position: "relative",
+    position: "relative" as const,
     zIndex: 2,
     flex: "1 1 auto",
     justifyContent: "center",
@@ -353,7 +353,7 @@ const styles = {
     fontWeight: "500",
   },
   progressBar: {
-    position: "absolute",
+    position: "absolute" as const,
     top: "1.25rem",
     left: "16.67%",
     right: "16.67%",
@@ -417,7 +417,7 @@ const styles = {
     marginBottom: "0.25rem",
   },
   selectCheckbox: {
-    position: "absolute",
+    position: "absolute" as const,
     top: "0.25rem",
     right: "0.25rem",
     width: "0.75rem",
@@ -667,7 +667,7 @@ const styles = {
   howItWorksSteps: {
     display: "flex",
     gap: "1.5rem",
-    flexWrap: "nowrap",
+    flexWrap: "nowrap" as const,
     justifyContent: "space-between",
   },
   howItWorksStep: {
@@ -750,16 +750,31 @@ const styles = {
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 // Function to extract error message from various error types
-const extractErrorMessage = (error: any): string => {
-  if (error?.message) {
-    return error.message
-  } else if (error?.reason) {
-    return error.reason
-  } else if (typeof error === "string") {
-    return error
-  } else {
-    return "An unexpected error occurred."
+const extractErrorMessage = (error: Error | string | unknown): string => {
+  if (typeof error === "object" && error !== null) {
+    // Check if it's an Error object
+    if (error instanceof Error) {
+      return error.message
+    }
+
+    // Check for objects with message property
+    if ("message" in error && typeof (error as { message: unknown }).message === "string") {
+      return (error as { message: string }).message
+    }
+
+    // Check for objects with reason property
+    if ("reason" in error && typeof (error as { reason: unknown }).reason === "string") {
+      return (error as { reason: string }).reason
+    }
   }
+
+  // Handle string errors
+  if (typeof error === "string") {
+    return error
+  }
+
+  // Default fallback
+  return "An unexpected error occurred."
 }
 
 export default function LendBorrow() {
@@ -782,6 +797,122 @@ export default function LendBorrow() {
 
   // Calculate progress bar width
   const progressWidth = ((currentStep - 1) / 2) * 100
+
+  // Add this function to your component
+  const checkForLoansBasedOnMissingNFTs = useCallback(async () => {
+    if (!isConnected || !address || !publicClient) {
+      console.log("Not connected or missing client")
+      return
+    }
+
+    setIsLoadingLoans(true)
+    try {
+      console.log("=== CHECKING FOR LOANS BASED ON MISSING NFTS ===")
+
+      // Create a simple function to check if an NFT is in the user's wallet
+      const checkNFTOwnership = async (contractAddress: string, tokenId: number) => {
+        try {
+          const balance = await publicClient.readContract({
+            address: contractAddress as `0x${string}`,
+            abi: erc1155ABI,
+            functionName: "balanceOf",
+            args: [address, BigInt(tokenId)],
+          })
+
+          return Number(balance) > 0
+        } catch (error) {
+          console.error(`Error checking NFT ownership for token ${tokenId}:`, error)
+          return false
+        }
+      }
+
+      // Check T-Bonds
+      console.log("Checking T-Bonds...")
+      const potentialLoanedTBonds: NFTAsset[] = []
+
+      // Check a range of token IDs (adjust as needed)
+      for (let id = 1; id <= 20; id++) {
+        const hasToken = await checkNFTOwnership(TBOND_CONTRACT_ADDRESS, id)
+        console.log(`T-Bond #${id}: ${hasToken ? "In wallet" : "Not in wallet"}`)
+
+        // If the token is in our list of owned tokens but not in the wallet, it might be in a loan
+        if (!hasToken && ownedTBonds.includes(id)) {
+          potentialLoanedTBonds.push({
+            id,
+            type: "T-Bond",
+            name: `T-Bond #${id}`,
+            value: 1000,
+            imageUrl: `/placeholder.svg?height=150&width=200`,
+          })
+        }
+      }
+
+      // Check Property Deeds
+      console.log("Checking Property Deeds...")
+      const potentialLoanedPropertyDeeds: NFTAsset[] = []
+
+      // Check a range of token IDs (adjust as needed)
+      for (let id = 1000; id <= 1020; id++) {
+        const hasToken = await checkNFTOwnership(PROPERTY_DEED_CONTRACT_ADDRESS, id)
+        console.log(`Property Deed #${id}: ${hasToken ? "In wallet" : "Not in wallet"}`)
+
+        // If the token is in our list of owned tokens but not in the wallet, it might be in a loan
+        if (!hasToken && ownedPropertyDeeds.includes(id)) {
+          potentialLoanedPropertyDeeds.push({
+            id,
+            type: "Property Deed",
+            name: `Property Deed #${id}`,
+            value: 100000,
+            imageUrl: `/placeholder.svg?height=150&width=200`,
+          })
+        }
+      }
+
+      // Combine all potentially loaned NFTs
+      const potentialLoanedNFTs = [...potentialLoanedTBonds, ...potentialLoanedPropertyDeeds]
+      console.log("Potentially loaned NFTs:", potentialLoanedNFTs)
+
+      // Create mock loans for these NFTs
+      const mockLoans: Loan[] = potentialLoanedNFTs.map((asset, index) => {
+        // Create a mock loan with estimated values
+        const loanAmount = asset.value * 0.5 // Assume 50% LTV
+        const feeAmount = loanAmount * 0.06 // Assume 6% fee
+        const startDate = new Date()
+        startDate.setMonth(startDate.getMonth() - 1) // Assume started 1 month ago
+        const dueDate = new Date()
+        dueDate.setMonth(dueDate.getMonth() + 5) // Assume 6 months duration
+
+        return {
+          id: `LOAN-${(index + 1).toString().padStart(3, "0")}`,
+          assets: [asset],
+          totalValue: asset.value,
+          loanAmount,
+          ltv: 50,
+          duration: 6,
+          fee: 6,
+          repaymentAmount: loanAmount + feeAmount,
+          startDate,
+          dueDate,
+          status: "active",
+          remainingDays: Math.floor((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+        }
+      })
+
+      console.log("Created mock loans:", mockLoans)
+
+      if (mockLoans.length > 0) {
+        setActiveLoans(mockLoans)
+      } else {
+        console.log("No potentially loaned NFTs found")
+        setActiveLoans([])
+      }
+    } catch (error) {
+      console.error("Error checking for loans based on missing NFTs:", error)
+      setActiveLoans([])
+    } finally {
+      setIsLoadingLoans(false)
+    }
+  }, [address, isConnected, publicClient, ownedTBonds, ownedPropertyDeeds])
 
   // Generate available assets from owned NFTs
   useEffect(() => {
@@ -815,7 +946,7 @@ export default function LendBorrow() {
 
     // Fetch active loans using our new approach
     checkForLoansBasedOnMissingNFTs()
-  }, [isConnected, ownedTBonds, ownedPropertyDeeds])
+  }, [isConnected, ownedTBonds, ownedPropertyDeeds, checkForLoansBasedOnMissingNFTs])
 
   // Update slider background based on LTV value
   useEffect(() => {
@@ -826,111 +957,49 @@ export default function LendBorrow() {
     }
   }, [ltv])
 
-  // Function to fetch active loans from the contract using nextLoanId and getLoan
-  const fetchActiveLoans = async () => {
-    if (!isConnected || !address || !publicClient) return
+  // Function to check if an NFT is already used as collateral
+  const checkIfNFTIsAlreadyCollateral = useCallback(
+    async (assetAddress: string, tokenId: number) => {
+      if (!publicClient) return false
 
-    setIsLoadingLoans(true)
-    try {
-      console.log("Fetching active loans using nextLoanId and getLoan...")
+      try {
+        // Get all active loans
+        const activeLoansIds = (await publicClient.readContract({
+          address: LENDING_VAULT_ADDRESS as `0x${string}`,
+          abi: lendingVaultABI,
+          functionName: "getAllActiveLoans",
+        })) as bigint[]
 
-      // Get the next loan ID to determine how many loans have been created
-      const nextLoanId = (await publicClient.readContract({
-        address: LENDING_VAULT_ADDRESS as `0x${string}`,
-        abi: lendingVaultABI,
-        functionName: "nextLoanId",
-      })) as bigint
-
-      console.log(`Total loans created: ${Number(nextLoanId) - 1}`)
-
-      const loans: Loan[] = []
-
-      // Check each loan from ID 1 to nextLoanId-1
-      for (let i = 1; i < Number(nextLoanId); i++) {
-        try {
-          console.log(`Fetching details for loan ID: ${i}`)
-
+        // Check each loan to see if it uses the NFT as collateral
+        for (const loanId of activeLoansIds) {
           const loanData = (await publicClient.readContract({
             address: LENDING_VAULT_ADDRESS as `0x${string}`,
             abi: lendingVaultABI,
-            functionName: "getLoan",
-            args: [BigInt(i)],
-          })) as any
+            functionName: "loans",
+            args: [loanId],
+          })) as unknown[]
 
-          console.log("Loan data:", loanData)
-
-          // Check if loan belongs to the current user and is active
           if (
-            loanData &&
-            loanData.borrower &&
-            loanData.borrower.toLowerCase() === address.toLowerCase() &&
-            loanData.active
+            typeof loanData[2] !== "undefined" &&
+            typeof loanData[3] !== "undefined" &&
+            typeof loanData[10] !== "undefined" &&
+            String(loanData[2]).toLowerCase() === assetAddress.toLowerCase() &&
+            Number(loanData[3]) === tokenId &&
+            Boolean(loanData[10]) === true
           ) {
-            const assetAddress = loanData.assetAddress
-            const tokenId = Number(loanData.tokenId)
-            const loanAmount = Number(loanData.loanAmount) / 1000000 // Convert from USDC decimals
-            const repayAmount = Number(loanData.repayAmount) / 1000000 // Convert from USDC decimals
-            const duration = Number(loanData.durationInMonths) // Already in months
-            const ltvValue = Number(loanData.ltv)
-            const startDate = new Date(Number(loanData.startDate) * 1000)
-            const endDate = new Date(Number(loanData.endDate) * 1000)
-
-            // Calculate remaining time
-            const now = Math.floor(Date.now() / 1000)
-            const remainingSeconds = Number(loanData.endDate) - now
-            const remainingDays = Math.max(0, Math.floor(remainingSeconds / 86400))
-            const isOverdue = remainingSeconds < 0
-
-            // Determine asset type and value
-            let assetType: NFTType = "T-Bond"
-            let assetValue = 1000
-
-            if (assetAddress.toLowerCase() === PROPERTY_DEED_CONTRACT_ADDRESS.toLowerCase()) {
-              assetType = "Property Deed"
-              assetValue = 100000
-            }
-
-            const asset: NFTAsset = {
-              id: tokenId,
-              type: assetType,
-              name: `${assetType} #${tokenId}`,
-              value: assetValue,
-              imageUrl: `/placeholder.svg?height=150&width=200`,
-            }
-
-            loans.push({
-              id: `LOAN-${i.toString().padStart(3, "0")}`,
-              assets: [asset],
-              totalValue: assetValue,
-              loanAmount,
-              ltv: ltvValue,
-              duration,
-              fee: ((repayAmount - loanAmount) / loanAmount) * 100,
-              repaymentAmount: repayAmount,
-              startDate,
-              dueDate: endDate,
-              status: isOverdue ? "defaulted" : "active",
-              remainingDays: isOverdue ? -Math.floor(remainingSeconds / 86400) : remainingDays,
-            })
-
-            console.log(`Added loan ${i} to active loans`)
-          } else {
-            console.log(`Loan ${i} is not active or doesn't belong to the current user`)
+            // Check if loan is active
+            return true
           }
-        } catch (error) {
-          console.error(`Error fetching loan ${i}:`, error)
         }
-      }
 
-      console.log("Total active loans found:", loans.length)
-      setActiveLoans(loans)
-    } catch (error) {
-      console.error("Error fetching active loans:", error)
-      setActiveLoans([])
-    } finally {
-      setIsLoadingLoans(false)
-    }
-  }
+        return false
+      } catch (error) {
+        console.error("Error checking if NFT is already collateral:", error)
+        return false
+      }
+    },
+    [publicClient],
+  )
 
   // Calculate total values
   const totalAssetValue = selectedAssets.reduce((sum, asset) => sum + asset.value, 0)
@@ -973,69 +1042,6 @@ export default function LendBorrow() {
   // Set LTV to quick select value
   const handleQuickSelectLTV = (value: number) => {
     setLtv(value)
-  }
-
-  // Function to check if an NFT is already used as collateral
-  const checkIfNFTIsAlreadyCollateral = async (assetAddress: string, tokenId: number) => {
-    if (!publicClient) return false
-
-    try {
-      // Get all active loans
-      const activeLoansIds = (await publicClient.readContract({
-        address: LENDING_VAULT_ADDRESS as `0x${string}`,
-        abi: lendingVaultABI,
-        functionName: "getAllActiveLoans",
-      })) as bigint[]
-
-      // Check each loan to see if it uses the NFT as collateral
-      for (const loanId of activeLoansIds) {
-        const loanData = (await publicClient.readContract({
-          address: LENDING_VAULT_ADDRESS as `0x${string}`,
-          abi: lendingVaultABI,
-          functionName: "loans",
-          args: [loanId],
-        })) as any[]
-
-        if (
-          loanData[2].toLowerCase() === assetAddress.toLowerCase() &&
-          Number(loanData[3]) === tokenId &&
-          loanData[10] === true
-        ) {
-          // Check if loan is active
-          return true
-        }
-      }
-
-      return false
-    } catch (error) {
-      console.error("Error checking if NFT is already collateral:", error)
-      return false
-    }
-  }
-
-  // Function to directly verify NFT ownership
-  const verifyNFTOwnership = async (asset: NFTAsset) => {
-    if (!isConnected || !address || !publicClient) return false
-
-    try {
-      const assetAddress = asset.type === "T-Bond" ? TBOND_CONTRACT_ADDRESS : PROPERTY_DEED_CONTRACT_ADDRESS
-
-      console.log(`Verifying ownership of ${asset.name} (ID: ${asset.id}) at address ${assetAddress}`)
-
-      const balance = await publicClient.readContract({
-        address: assetAddress as `0x${string}`,
-        abi: erc1155ABI,
-        functionName: "balanceOf",
-        args: [address, BigInt(asset.id)],
-      })
-
-      const hasBalance = Number(balance) > 0
-      console.log(`Balance for ${asset.name}: ${Number(balance)} (Has balance: ${hasBalance})`)
-      return hasBalance
-    } catch (error) {
-      console.error(`Error verifying ownership of ${asset.name}:`, error)
-      return false
-    }
   }
 
   // Update the handleConfirmLoan function to use the correct function signature
@@ -1184,7 +1190,7 @@ export default function LendBorrow() {
           setErrorMessage("Loan successfully created!")
 
           // Refresh active loans
-          await fetchActiveLoans()
+          checkForLoansBasedOnMissingNFTs()
 
           return // Exit after successful loan creation
         } catch (error) {
@@ -1220,7 +1226,7 @@ export default function LendBorrow() {
             setErrorMessage("Loan successfully created with lower LTV!")
 
             // Refresh active loans
-            await fetchActiveLoans()
+            checkForLoansBasedOnMissingNFTs()
 
             return // Exit after successful loan creation
           } catch (lowerLtvError) {
@@ -1254,10 +1260,6 @@ export default function LendBorrow() {
       if (!loan) {
         throw new Error("Loan not found")
       }
-
-      // Get the asset from the loan
-      const asset = loan.assets[0]
-      const assetAddress = asset.type === "T-Bond" ? TBOND_CONTRACT_ADDRESS : PROPERTY_DEED_CONTRACT_ADDRESS
 
       // 1. Approve USDC spending
       const { request: approveRequest } = await publicClient.simulateContract({
@@ -1307,337 +1309,6 @@ export default function LendBorrow() {
       setErrorMessage(`Error repaying loan: ${extractErrorMessage(error)}`)
     } finally {
       setIsProcessing(false)
-    }
-  }
-
-  // Add this simplified function to fetch active loans directly
-  const fetchActiveLoansSimplified = async () => {
-    if (!isConnected || !address || !publicClient) {
-      console.log("Not connected or missing client")
-      return
-    }
-
-    setIsLoadingLoans(true)
-    try {
-      console.log("=== SIMPLIFIED LOAN FETCHING ===")
-      console.log("User address:", address)
-      console.log("Checking for active loans...")
-
-      // First, try to get the user's loan IDs using getLoansForBorrower
-      try {
-        const loanIds = (await publicClient.readContract({
-          address: LENDING_VAULT_ADDRESS as `0x${string}`,
-          abi: lendingVaultABI,
-          functionName: "getLoansForBorrower",
-          args: [address],
-        })) as bigint[]
-
-        console.log(
-          "Loan IDs for borrower:",
-          loanIds.map((id) => Number(id)),
-        )
-
-        if (loanIds.length > 0) {
-          const loans: Loan[] = []
-
-          // Get details for each loan ID
-          for (const loanId of loanIds) {
-            try {
-              console.log(`Fetching details for loan ID: ${Number(loanId)}`)
-
-              const loanData = (await publicClient.readContract({
-                address: LENDING_VAULT_ADDRESS as `0x${string}`,
-                abi: lendingVaultABI,
-                functionName: "getLoan",
-                args: [loanId],
-              })) as any
-
-              console.log(`Loan ${Number(loanId)} data:`, loanData)
-
-              // Check if loan is active
-              if (loanData && loanData.active) {
-                const assetAddress = loanData.assetAddress
-                const tokenId = Number(loanData.tokenId)
-                const loanAmount = Number(loanData.loanAmount) / 1000000 // Convert from USDC decimals
-                const repayAmount = Number(loanData.repayAmount) / 1000000 // Convert from USDC decimals
-                const duration = Number(loanData.durationInMonths) // Already in months
-                const ltvValue = Number(loanData.ltv)
-                const startDate = new Date(Number(loanData.startDate) * 1000)
-                const endDate = new Date(Number(loanData.endDate) * 1000)
-
-                // Calculate remaining time
-                const now = Math.floor(Date.now() / 1000)
-                const remainingSeconds = Number(loanData.endDate) - now
-                const remainingDays = Math.floor(remainingSeconds / 86400)
-
-                // Determine asset type and value
-                let assetType: NFTType = "T-Bond"
-                let assetValue = 1000
-
-                if (assetAddress.toLowerCase() === PROPERTY_DEED_CONTRACT_ADDRESS.toLowerCase()) {
-                  assetType = "Property Deed"
-                  assetValue = 100000
-                }
-
-                const asset: NFTAsset = {
-                  id: tokenId,
-                  type: assetType,
-                  name: `${assetType} #${tokenId}`,
-                  value: assetValue,
-                  imageUrl: `/placeholder.svg?height=150&width=200`,
-                }
-
-                loans.push({
-                  id: `LOAN-${Number(loanId).toString().padStart(3, "0")}`,
-                  assets: [asset],
-                  totalValue: assetValue,
-                  loanAmount,
-                  ltv: ltvValue,
-                  duration,
-                  fee: ((repayAmount - loanAmount) / loanAmount) * 100,
-                  repaymentAmount: repayAmount,
-                  startDate,
-                  dueDate: endDate,
-                  status: remainingSeconds < 0 ? "defaulted" : "active",
-                  remainingDays: remainingDays,
-                })
-
-                console.log(`Added loan ${Number(loanId)} to active loans list`)
-              }
-            } catch (error) {
-              console.error(`Error fetching details for loan ${Number(loanId)}:`, error)
-            }
-          }
-
-          console.log(`Found ${loans.length} active loans for user`)
-          console.log(loans)
-
-          setActiveLoans(loans)
-        } else {
-          console.log("No loans found for this borrower")
-          setActiveLoans([])
-        }
-      } catch (error) {
-        console.error("Error getting loans for borrower:", error)
-
-        // Fallback to using nextLoanId and getLoan
-        try {
-          console.log("Trying fallback method with nextLoanId...")
-
-          const nextLoanId = (await publicClient.readContract({
-            address: LENDING_VAULT_ADDRESS as `0x${string}`,
-            abi: lendingVaultABI,
-            functionName: "nextLoanId",
-          })) as bigint
-
-          console.log(`Total loans created: ${Number(nextLoanId) - 1}`)
-
-          const loans: Loan[] = []
-
-          // Check each loan from ID 1 to nextLoanId-1
-          for (let i = 1; i < Number(nextLoanId); i++) {
-            try {
-              console.log(`Fetching details for loan ID: ${i}`)
-
-              const loanData = (await publicClient.readContract({
-                address: LENDING_VAULT_ADDRESS as `0x${string}`,
-                abi: lendingVaultABI,
-                functionName: "getLoan",
-                args: [BigInt(i)],
-              })) as any
-
-              console.log(`Loan ${i} data:`, loanData)
-
-              // Check if loan belongs to the current user and is active
-              if (
-                loanData &&
-                loanData.borrower &&
-                loanData.borrower.toLowerCase() === address.toLowerCase() &&
-                loanData.active
-              ) {
-                const assetAddress = loanData.assetAddress
-                const tokenId = Number(loanData.tokenId)
-                const loanAmount = Number(loanData.loanAmount) / 1000000 // Convert from USDC decimals
-                const repayAmount = Number(loanData.repayAmount) / 1000000 // Convert from USDC decimals
-                const duration = Number(loanData.durationInMonths) // Already in months
-                const ltvValue = Number(loanData.ltv)
-                const startDate = new Date(Number(loanData.startDate) * 1000)
-                const endDate = new Date(Number(loanData.endDate) * 1000)
-
-                // Calculate remaining time
-                const now = Math.floor(Date.now() / 1000)
-                const remainingSeconds = Number(loanData.endDate) - now
-                const remainingDays = Math.floor(remainingSeconds / 86400)
-
-                // Determine asset type and value
-                let assetType: NFTType = "T-Bond"
-                let assetValue = 1000
-
-                if (assetAddress.toLowerCase() === PROPERTY_DEED_CONTRACT_ADDRESS.toLowerCase()) {
-                  assetType = "Property Deed"
-                  assetValue = 100000
-                }
-
-                const asset: NFTAsset = {
-                  id: tokenId,
-                  type: assetType,
-                  name: `${assetType} #${tokenId}`,
-                  value: assetValue,
-                  imageUrl: `/placeholder.svg?height=150&width=200`,
-                }
-
-                loans.push({
-                  id: `LOAN-${i.toString().padStart(3, "0")}`,
-                  assets: [asset],
-                  totalValue: assetValue,
-                  loanAmount,
-                  ltv: ltvValue,
-                  duration,
-                  fee: ((repayAmount - loanAmount) / loanAmount) * 100,
-                  repaymentAmount: repayAmount,
-                  startDate,
-                  dueDate: endDate,
-                  status: remainingSeconds < 0 ? "defaulted" : "active",
-                  remainingDays: remainingDays,
-                })
-
-                console.log(`Added loan ${i} to active loans list`)
-              }
-            } catch (error) {
-              console.error(`Error fetching loan ${i}:`, error)
-            }
-          }
-
-          console.log(`Found ${loans.length} active loans for user`)
-          console.log(loans)
-
-          setActiveLoans(loans)
-        } catch (fallbackError) {
-          console.error("Error in fallback method:", fallbackError)
-          setActiveLoans([])
-        }
-      }
-    } catch (error) {
-      console.error("Error in simplified loan fetching:", error)
-      setActiveLoans([])
-    } finally {
-      setIsLoadingLoans(false)
-    }
-  }
-
-  // Add this function to your component
-  const checkForLoansBasedOnMissingNFTs = async () => {
-    if (!isConnected || !address || !publicClient) {
-      console.log("Not connected or missing client")
-      return
-    }
-
-    setIsLoadingLoans(true)
-    try {
-      console.log("=== CHECKING FOR LOANS BASED ON MISSING NFTS ===")
-
-      // Create a simple function to check if an NFT is in the user's wallet
-      const checkNFTOwnership = async (contractAddress: string, tokenId: number) => {
-        try {
-          const balance = await publicClient.readContract({
-            address: contractAddress as `0x${string}`,
-            abi: erc1155ABI,
-            functionName: "balanceOf",
-            args: [address, BigInt(tokenId)],
-          })
-
-          return Number(balance) > 0
-        } catch (error) {
-          console.error(`Error checking NFT ownership for token ${tokenId}:`, error)
-          return false
-        }
-      }
-
-      // Check T-Bonds
-      console.log("Checking T-Bonds...")
-      const potentialLoanedTBonds: NFTAsset[] = []
-
-      // Check a range of token IDs (adjust as needed)
-      for (let id = 1; id <= 20; id++) {
-        const hasToken = await checkNFTOwnership(TBOND_CONTRACT_ADDRESS, id)
-        console.log(`T-Bond #${id}: ${hasToken ? "In wallet" : "Not in wallet"}`)
-
-        // If the token is in our list of owned tokens but not in the wallet, it might be in a loan
-        if (!hasToken && ownedTBonds.includes(id)) {
-          potentialLoanedTBonds.push({
-            id,
-            type: "T-Bond",
-            name: `T-Bond #${id}`,
-            value: 1000,
-            imageUrl: `/placeholder.svg?height=150&width=200`,
-          })
-        }
-      }
-
-      // Check Property Deeds
-      console.log("Checking Property Deeds...")
-      const potentialLoanedPropertyDeeds: NFTAsset[] = []
-
-      // Check a range of token IDs (adjust as needed)
-      for (let id = 1000; id <= 1020; id++) {
-        const hasToken = await checkNFTOwnership(PROPERTY_DEED_CONTRACT_ADDRESS, id)
-        console.log(`Property Deed #${id}: ${hasToken ? "In wallet" : "Not in wallet"}`)
-
-        // If the token is in our list of owned tokens but not in the wallet, it might be in a loan
-        if (!hasToken && ownedPropertyDeeds.includes(id)) {
-          potentialLoanedPropertyDeeds.push({
-            id,
-            type: "Property Deed",
-            name: `Property Deed #${id}`,
-            value: 100000,
-            imageUrl: `/placeholder.svg?height=150&width=200`,
-          })
-        }
-      }
-
-      // Combine all potentially loaned NFTs
-      const potentialLoanedNFTs = [...potentialLoanedTBonds, ...potentialLoanedPropertyDeeds]
-      console.log("Potentially loaned NFTs:", potentialLoanedNFTs)
-
-      // Create mock loans for these NFTs
-      const mockLoans: Loan[] = potentialLoanedNFTs.map((asset, index) => {
-        // Create a mock loan with estimated values
-        const loanAmount = asset.value * 0.5 // Assume 50% LTV
-        const feeAmount = loanAmount * 0.06 // Assume 6% fee
-        const startDate = new Date()
-        startDate.setMonth(startDate.getMonth() - 1) // Assume started 1 month ago
-        const dueDate = new Date()
-        dueDate.setMonth(dueDate.getMonth() + 5) // Assume 6 months duration
-
-        return {
-          id: `LOAN-${(index + 1).toString().padStart(3, "0")}`,
-          assets: [asset],
-          totalValue: asset.value,
-          loanAmount,
-          ltv: 50,
-          duration: 6,
-          fee: 6,
-          repaymentAmount: loanAmount + feeAmount,
-          startDate,
-          dueDate,
-          status: "active",
-          remainingDays: Math.floor((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-        }
-      })
-
-      console.log("Created mock loans:", mockLoans)
-
-      if (mockLoans.length > 0) {
-        setActiveLoans(mockLoans)
-      } else {
-        console.log("No potentially loaned NFTs found")
-        setActiveLoans([])
-      }
-    } catch (error) {
-      console.error("Error checking for loans based on missing NFTs:", error)
-      setActiveLoans([])
-    } finally {
-      setIsLoadingLoans(false)
     }
   }
 

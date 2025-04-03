@@ -301,8 +301,8 @@ export default function BuyAssets() {
 
             <div style={{ marginBottom: "1.5rem" }}>
               <p style={{ color: "#ffffff", lineHeight: 1.5 }}>
-                You'll need Mock USDC tokens to purchase T-Bonds and Property Deeds on the testnet platform. Get them
-                for free from our faucet.
+                You&apos;ll need Mock USDC tokens to purchase T-Bonds and Property Deeds on the testnet platform. Get
+                them for free from our faucet.
               </p>
             </div>
           </div>

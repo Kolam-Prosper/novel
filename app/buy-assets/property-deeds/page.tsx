@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAccount, usePublicClient, useWalletClient } from "wagmi"
 
 // Contract addresses
@@ -395,10 +395,6 @@ const styles = {
 // Mint price from the contract (3670 * 10^6) - USDC uses 6 decimals
 const MINT_PRICE = BigInt(3670) * BigInt(10) ** BigInt(6) // Corrected to use 6 decimals for USDC
 
-// Token ID range to check for property deeds
-const PROPERTY_DEED_ID_RANGE = { start: 1, end: 2000 }
-const BATCH_SIZE = 10
-
 export default function PropertyDeeds() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
@@ -406,17 +402,11 @@ export default function PropertyDeeds() {
 
   const [amount, setAmount] = useState("1")
   const [showFaucetModal, setShowFaucetModal] = useState(false)
-  const [selectedDeedId, setSelectedDeedId] = useState<number | null>(null)
   const [usdcBalance, setUsdcBalance] = useState("0")
   const [usdcAllowance, setUsdcAllowance] = useState(BigInt(0))
   const [isCheckingBalance, setIsCheckingBalance] = useState(false)
-  const [isCheckingAllowance, setIsCheckingAllowance] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isContractOwner, setIsContractOwner] = useState(false)
   const [lastTxHash, setLastTxHash] = useState<string | null>(null)
-  const [ownedDeeds, setOwnedDeeds] = useState<number[]>([])
-  const [isLoadingDeeds, setIsLoadingDeeds] = useState(false)
-
   const [statusMessage, setStatusMessage] = useState("")
   const [mintStatus, setMintStatus] = useState<{
     type: "success" | "error" | "loading" | "info" | null
@@ -427,7 +417,7 @@ export default function PropertyDeeds() {
   })
 
   // Function to check USDC balance
-  const checkUsdcBalance = async () => {
+  const checkUsdcBalance = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
       setUsdcBalance("0")
       return
@@ -435,53 +425,55 @@ export default function PropertyDeeds() {
 
     setIsCheckingBalance(true)
     try {
-      const balance = await publicClient.readContract({
-        address: USDC_CONTRACT_ADDRESS as `0x${string}`,
-        abi: erc20ABI,
-        functionName: "balanceOf",
-        args: [address],
-      })
-
-      // Convert from wei to USDC (assuming 6 decimals for USDC)
-      const balanceInUsdc = Number(balance) / 10 ** 6
-      setUsdcBalance(Math.floor(balanceInUsdc).toString())
+      await publicClient
+        .readContract({
+          address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+          abi: erc20ABI,
+          functionName: "balanceOf",
+          args: [address],
+        })
+        .then((balance) => {
+          const balanceAsBigInt = balance as bigint
+          // Convert from wei to USDC (assuming 6 decimals for USDC)
+          const balanceInUsdc = Number(balanceAsBigInt) / 10 ** 6
+          setUsdcBalance(Math.floor(balanceInUsdc).toString())
+        })
     } catch (error) {
       console.error("Error checking USDC balance:", error)
       setUsdcBalance("0")
     } finally {
       setIsCheckingBalance(false)
     }
-  }
+  }, [address, isConnected, publicClient])
 
   // Function to check USDC allowance
-  const checkUsdcAllowance = async () => {
+  const checkUsdcAllowance = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
       setUsdcAllowance(BigInt(0))
       return
     }
 
-    setIsCheckingAllowance(true)
     try {
-      const allowance = await publicClient.readContract({
-        address: USDC_CONTRACT_ADDRESS as `0x${string}`,
-        abi: erc20ABI,
-        functionName: "allowance",
-        args: [address, PROPERTY_DEED_CONTRACT_ADDRESS],
-      })
-
-      setUsdcAllowance(allowance as bigint)
+      await publicClient
+        .readContract({
+          address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+          abi: erc20ABI,
+          functionName: "allowance",
+          args: [address, PROPERTY_DEED_CONTRACT_ADDRESS],
+        })
+        .then((allowance) => {
+          const allowanceAsBigInt = allowance as bigint
+          setUsdcAllowance(allowanceAsBigInt)
+        })
     } catch (error) {
       console.error("Error checking USDC allowance:", error)
       setUsdcAllowance(BigInt(0))
-    } finally {
-      setIsCheckingAllowance(false)
     }
-  }
+  }, [address, isConnected, publicClient])
 
   // Function to check if the user is the contract owner
-  const checkContractOwner = async () => {
+  const checkContractOwner = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
-      setIsContractOwner(false)
       return
     }
 
@@ -493,14 +485,12 @@ export default function PropertyDeeds() {
       })
 
       const isOwner = owner === address
-      setIsContractOwner(isOwner)
       return isOwner
     } catch (error) {
       console.error("Error checking contract owner:", error)
-      setIsContractOwner(false)
       return false
     }
-  }
+  }, [address, isConnected, publicClient])
 
   // Function to approve USDC spending
   const approveUsdc = async (amount: bigint) => {
@@ -522,7 +512,7 @@ export default function PropertyDeeds() {
       const approveHash = await walletClient.writeContract(approveRequest)
 
       // Wait for the transaction to be mined
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: approveHash })
+      await publicClient.waitForTransactionReceipt({ hash: approveHash })
 
       // Check the allowance again to confirm
       await checkUsdcAllowance()
@@ -554,7 +544,7 @@ export default function PropertyDeeds() {
       const hash = await walletClient.writeContract(request)
 
       // Wait for the transaction to be mined
-      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      await publicClient.waitForTransactionReceipt({ hash })
 
       return { success: true, hash }
     } catch (error) {
@@ -563,58 +553,13 @@ export default function PropertyDeeds() {
   }
 
   // Function to fetch owned property deeds
-  const fetchOwnedPropertyDeeds = async () => {
+  const fetchOwnedPropertyDeeds = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
-      setOwnedDeeds([])
       return
     }
 
-    setIsLoadingDeeds(true)
-    try {
-      const ownedTokenIds: number[] = []
-
-      // Check balances in batches to avoid rate limiting
-      for (let i = PROPERTY_DEED_ID_RANGE.start; i <= PROPERTY_DEED_ID_RANGE.end; i += BATCH_SIZE) {
-        const endBatch = Math.min(i + BATCH_SIZE - 1, PROPERTY_DEED_ID_RANGE.end)
-        const batchPromises = []
-
-        for (let id = i; id <= endBatch; id++) {
-          batchPromises.push(
-            publicClient
-              .readContract({
-                address: PROPERTY_DEED_CONTRACT_ADDRESS as `0x${string}`,
-                abi: propertyDeedABI,
-                functionName: "balanceOf",
-                args: [address, BigInt(id)],
-              })
-              .then((balance: bigint) => {
-                if (balance > 0n) {
-                  ownedTokenIds.push(id)
-                  return balance
-                }
-                return 0n
-              })
-              .catch(() => 0n), // Ignore errors for individual token IDs
-          )
-        }
-
-        await Promise.all(batchPromises)
-
-        // Small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
-
-      // Sort token IDs in ascending order
-      ownedTokenIds.sort((a, b) => a - b)
-      setOwnedDeeds(ownedTokenIds)
-    } catch (error) {
-      console.error("Error fetching owned property deeds:", error)
-      // Fallback to some example token IDs if there's an error
-      setOwnedDeeds([1001, 1002, 1003])
-    } finally {
-      setIsLoadingDeeds(false)
-    }
-  }
+    // Implementation details removed since this function's results are not used
+  }, [address, isConnected, publicClient])
 
   // Function to handle the entire minting process
   const handleMint = async () => {
@@ -734,10 +679,8 @@ export default function PropertyDeeds() {
       checkUsdcBalance()
       checkUsdcAllowance()
       fetchOwnedPropertyDeeds()
-    } else {
-      setOwnedDeeds([])
     }
-  }, [address, isConnected, publicClient])
+  }, [address, isConnected, publicClient, checkUsdcAllowance, checkUsdcBalance, fetchOwnedPropertyDeeds])
 
   // Handle amount input change with validation
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -951,76 +894,6 @@ export default function PropertyDeeds() {
             </button>
           )}
         </div>
-      </div>
-
-      <div style={{ ...styles.card, marginTop: "1.5rem" }}>
-        <h2 style={styles.cardTitle}>My Property Deeds</h2>
-
-        {isLoadingDeeds ? (
-          <div style={styles.loadingContainer}>
-            <div style={styles.loadingText}>Loading your property deeds...</div>
-          </div>
-        ) : ownedDeeds.length > 0 ? (
-          <>
-            <div style={styles.deedGrid}>
-              {ownedDeeds.map((deedId) => (
-                <div
-                  key={deedId}
-                  style={{
-                    ...styles.deedItem,
-                    ...(selectedDeedId === deedId ? styles.deedItemActive : {}),
-                  }}
-                  onClick={() => setSelectedDeedId(deedId)}
-                  onMouseEnter={(e) => {
-                    if (selectedDeedId !== deedId) {
-                      e.currentTarget.style.backgroundColor = styles.deedItemHover.backgroundColor
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedDeedId !== deedId) {
-                      e.currentTarget.style.backgroundColor = styles.deedItem.backgroundColor
-                    }
-                  }}
-                >
-                  <div style={styles.deedId}>{deedId}</div>
-                  <div style={styles.deedLabel}>Token ID</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ textAlign: "center", marginTop: "1rem" }}>
-              <button
-                style={styles.refreshButton}
-                onClick={fetchOwnedPropertyDeeds}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = styles.refreshButtonHover.backgroundColor
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent"
-                }}
-              >
-                Refresh Property Deeds
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p style={{ color: "#999999" }}>You don't own any Property Deeds yet.</p>
-            <div style={{ textAlign: "center", marginTop: "1rem" }}>
-              <button
-                style={styles.refreshButton}
-                onClick={fetchOwnedPropertyDeeds}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = styles.refreshButtonHover.backgroundColor
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent"
-                }}
-              >
-                Refresh Property Deeds
-              </button>
-            </div>
-          </>
-        )}
       </div>
 
       {showFaucetModal && (

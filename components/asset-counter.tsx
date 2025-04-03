@@ -133,14 +133,15 @@ export function useAssetCount() {
                     functionName: "balanceOf",
                     args: [address, BigInt(id)],
                   })
-                  .then((balance: bigint) => {
-                    if (balance > 0n) {
+                  .then((balance) => {
+                    const balanceAsBigInt = balance as bigint
+                    if (balanceAsBigInt > BigInt(0)) {
                       tokenIds.push(id)
-                      return balance
+                      return balanceAsBigInt
                     }
-                    return 0n
+                    return BigInt(0)
                   })
-                  .catch(() => 0n), // Ignore errors for individual token IDs
+                  .catch(() => BigInt(0)), // Ignore errors for individual token IDs
               )
             }
 

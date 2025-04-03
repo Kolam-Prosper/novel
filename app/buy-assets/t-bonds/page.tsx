@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAccount, usePublicClient, useWalletClient } from "wagmi"
 
 // Contract addresses
@@ -108,6 +108,20 @@ const tBondABI = [
     inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
     name: "uri",
     outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+]
+
+// ERC-1155 ABI (for balanceOf)
+const erc1155ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "account", type: "address" },
+      { internalType: "uint256", name: "id", type: "uint256" },
+    ],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
@@ -424,10 +438,24 @@ const styles = {
   refreshButtonHover: {
     backgroundColor: "rgba(255, 107, 0, 0.1)",
   },
+  select: {
+    width: "100%",
+    padding: "0.75rem",
+    backgroundColor: "#1a1a1a",
+    border: "1px solid #333333",
+    borderRadius: "0.375rem",
+    color: "#ffffff",
+    fontSize: "1rem",
+    appearance: "none" as const,
+    WebkitAppearance: "none" as const,
+    MozAppearance: "none" as const,
+    backgroundImage:
+      "url(\"data:image/svg+xml;utf8,<svg fill='%23ffffff' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>\")",
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 0.75rem top 50%",
+    backgroundSize: "1.5rem",
+  },
 }
-
-// Mint price from the contract (1000 * 10^6) - USDC uses 6 decimals
-const MINT_PRICE = BigInt(1000) * BigInt(10) ** BigInt(6)
 
 // Token ID range to check for T-Bonds
 const TBOND_ID_RANGE = { start: 1, end: 100 }
@@ -442,11 +470,8 @@ export default function TBonds() {
   const [showFaucetModal, setShowFaucetModal] = useState(false)
   const [selectedBondId, setSelectedBondId] = useState<number | null>(null)
   const [usdcBalance, setUsdcBalance] = useState("0")
-  const [usdcAllowance, setUsdcAllowance] = useState(BigInt(0))
   const [isCheckingBalance, setIsCheckingBalance] = useState(false)
-  const [isCheckingAllowance, setIsCheckingAllowance] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isContractOwner, setIsContractOwner] = useState(false)
   const [lastTxHash, setLastTxHash] = useState<string | null>(null)
   const [ownedBonds, setOwnedBonds] = useState<number[]>([])
   const [isLoadingBonds, setIsLoadingBonds] = useState(false)
@@ -462,7 +487,7 @@ export default function TBonds() {
   })
 
   // Function to check USDC balance
-  const checkUsdcBalance = async () => {
+  const checkUsdcBalance = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
       setUsdcBalance("0")
       return
@@ -486,16 +511,13 @@ export default function TBonds() {
     } finally {
       setIsCheckingBalance(false)
     }
-  }
+  }, [address, isConnected, publicClient])
 
-  // Function to check USDC allowance
-  const checkUsdcAllowance = async () => {
+  const checkUsdcAllowance = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
-      setUsdcAllowance(BigInt(0))
-      return
+      return BigInt(0)
     }
 
-    setIsCheckingAllowance(true)
     try {
       const allowance = await publicClient.readContract({
         address: USDC_CONTRACT_ADDRESS as `0x${string}`,
@@ -504,17 +526,15 @@ export default function TBonds() {
         args: [address, TBOND_CONTRACT_ADDRESS],
       })
 
-      setUsdcAllowance(allowance as bigint)
+      return allowance as bigint
     } catch (error) {
       console.error("Error checking USDC allowance:", error)
-      setUsdcAllowance(BigInt(0))
-    } finally {
-      setIsCheckingAllowance(false)
+      return BigInt(0)
     }
-  }
+  }, [address, isConnected, publicClient])
 
   // Function to check total supply
-  const checkTotalSupply = async () => {
+  const checkTotalSupply = useCallback(async () => {
     if (!publicClient) return
 
     try {
@@ -528,12 +548,11 @@ export default function TBonds() {
     } catch (error) {
       console.error("Error checking total supply:", error)
     }
-  }
+  }, [publicClient])
 
   // Function to check if the user is the contract owner
-  const checkContractOwner = async () => {
+  const checkContractOwner = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
-      setIsContractOwner(false)
       return false
     }
 
@@ -545,7 +564,6 @@ export default function TBonds() {
       })
 
       const isOwner = owner === address
-      setIsContractOwner(isOwner)
       return isOwner
     } catch (error) {
       console.error("Error checking contract owner:", error)
@@ -553,7 +571,7 @@ export default function TBonds() {
       // For testing purposes, we'll assume the user can mint
       return true
     }
-  }
+  }, [address, isConnected, publicClient])
 
   // Function to approve USDC spending
   const approveUsdc = async (amount: bigint) => {
@@ -575,10 +593,7 @@ export default function TBonds() {
       const approveHash = await walletClient.writeContract(approveRequest)
 
       // Wait for the transaction to be mined
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: approveHash })
-
-      // Check the allowance again to confirm
-      await checkUsdcAllowance()
+      await publicClient.waitForTransactionReceipt({ hash: approveHash })
 
       return true
     } catch (error) {
@@ -607,7 +622,7 @@ export default function TBonds() {
       const hash = await walletClient.writeContract(request)
 
       // Wait for the transaction to be mined
-      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      await publicClient.waitForTransactionReceipt({ hash })
 
       return { success: true, hash }
     } catch (error) {
@@ -616,7 +631,7 @@ export default function TBonds() {
   }
 
   // Function to fetch owned T-Bonds
-  const fetchOwnedTBonds = async () => {
+  const fetchOwnedTBonds = useCallback(async () => {
     if (!isConnected || !address || !publicClient) {
       setOwnedBonds([])
       return
@@ -636,18 +651,19 @@ export default function TBonds() {
             publicClient
               .readContract({
                 address: TBOND_CONTRACT_ADDRESS as `0x${string}`,
-                abi: tBondABI,
+                abi: erc1155ABI,
                 functionName: "balanceOf",
                 args: [address, BigInt(id)],
               })
-              .then((balance: bigint) => {
-                if (balance > 0n) {
+              .then((balance) => {
+                const balanceAsBigInt = balance as bigint
+                if (balanceAsBigInt > BigInt(0)) {
                   ownedTokenIds.push(id)
-                  return balance
+                  return balanceAsBigInt
                 }
-                return 0n
+                return BigInt(0)
               })
-              .catch(() => 0n), // Ignore errors for individual token IDs
+              .catch(() => BigInt(0)), // Ignore errors for individual token IDs
           )
         }
 
@@ -667,7 +683,7 @@ export default function TBonds() {
     } finally {
       setIsLoadingBonds(false)
     }
-  }
+  }, [address, isConnected, publicClient])
 
   const handleMint = async () => {
     if (!isConnected || !address || !walletClient || !publicClient) {
@@ -706,18 +722,15 @@ export default function TBonds() {
       // Check USDC balance
       await checkUsdcBalance()
 
-      // Calculate total USDC needed
-      const totalUsdcNeeded = MINT_PRICE * BigInt(amountValue)
-
-      // Check current allowance
-      await checkUsdcAllowance()
+      // Calculate total USDC needed - we'll use this for the approval
+      // Use a large approval amount to avoid future approvals
+      const largeApproval = BigInt(1000000) * BigInt(10) ** BigInt(6) // 1,000,000 USDC
 
       // Always approve USDC first, regardless of current allowance
       setStatusMessage("Step 1/2: Approving USDC spending...")
 
       try {
         // Approve a large amount to avoid future approvals
-        const largeApproval = BigInt(1000000) * BigInt(10) ** BigInt(6) // 1,000,000 USDC
         await approveUsdc(largeApproval)
         setStatusMessage("USDC spending approved! Proceeding to mint...")
       } catch (error) {
@@ -726,9 +739,9 @@ export default function TBonds() {
       }
 
       // Check if user is contract owner
-      await checkContractOwner()
+      const isOwner = await checkContractOwner()
 
-      if (!isContractOwner) {
+      if (!isOwner) {
         throw new Error("Only the contract owner can mint tokens. Please contact the administrator.")
       }
 
@@ -804,7 +817,16 @@ export default function TBonds() {
     } else {
       setOwnedBonds([])
     }
-  }, [address, isConnected, publicClient])
+  }, [
+    address,
+    isConnected,
+    publicClient,
+    checkUsdcAllowance,
+    checkUsdcBalance,
+    fetchOwnedTBonds,
+    checkContractOwner,
+    checkTotalSupply,
+  ])
 
   // Handle amount input change with validation
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1079,7 +1101,7 @@ export default function TBonds() {
           </>
         ) : (
           <>
-            <p style={{ color: "#999999" }}>You don't own any T-Bonds yet.</p>
+            <p style={{ color: "#999999" }}>You don&apos;t own any T-Bonds yet.</p>
             <div style={{ textAlign: "center", marginTop: "1rem" }}>
               <button
                 style={styles.refreshButton}
