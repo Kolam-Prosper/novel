@@ -86,49 +86,44 @@ const styles = {
 
 // Inline SVG Kolam pattern
 const KolamLogo = () => (
-  <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    {/* Black diamond pattern with white outlines */}
-    <g fill="black" stroke="white" strokeWidth="2">
-      {/* Center diamond */}
-      <path d="M50,30 L70,50 L50,70 L30,50 Z" />
+  <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    {/* Background */}
+    <circle cx="50" cy="50" r="45" fill="#ff6b00" opacity="0.2" />
 
-      {/* Top diamond */}
-      <path d="M50,10 L60,20 L50,30 L40,20 Z" />
+    {/* Outer kolam pattern */}
+    <path d="M50,5 L95,50 L50,95 L5,50 Z" fill="none" stroke="white" strokeWidth="2" />
 
-      {/* Right diamond */}
-      <path d="M70,50 L80,60 L70,70 L60,60 Z" />
+    {/* Middle kolam pattern */}
+    <path d="M50,15 L85,50 L50,85 L15,50 Z" fill="none" stroke="white" strokeWidth="2" />
 
-      {/* Bottom diamond */}
-      <path d="M50,70 L60,80 L50,90 L40,80 Z" />
+    {/* Inner kolam pattern */}
+    <path d="M50,25 L75,50 L50,75 L25,50 Z" fill="none" stroke="white" strokeWidth="2" />
 
-      {/* Left diamond */}
-      <path d="M30,50 L40,60 L30,70 L20,60 Z" />
+    {/* Center diamond */}
+    <path d="M50,35 L65,50 L50,65 L35,50 Z" fill="#ff6b00" stroke="white" strokeWidth="1.5" />
 
-      {/* Top-right diamond */}
-      <path d="M60,20 L70,30 L60,40 L50,30 Z" />
+    {/* Connecting lines */}
+    <line x1="5" y1="50" x2="95" y2="50" stroke="white" strokeWidth="1" opacity="0.6" />
+    <line x1="50" y1="5" x2="50" y2="95" stroke="white" strokeWidth="1" opacity="0.6" />
 
-      {/* Bottom-right diamond */}
-      <path d="M60,60 L70,70 L60,80 L50,70 Z" />
+    {/* Decorative dots */}
+    <circle cx="50" cy="5" r="3" fill="white" />
+    <circle cx="95" cy="50" r="3" fill="white" />
+    <circle cx="50" cy="95" r="3" fill="white" />
+    <circle cx="5" cy="50" r="3" fill="white" />
 
-      {/* Bottom-left diamond */}
-      <path d="M40,60 L50,70 L40,80 L30,70 Z" />
+    <circle cx="50" cy="15" r="2" fill="white" />
+    <circle cx="85" cy="50" r="2" fill="white" />
+    <circle cx="50" cy="85" r="2" fill="white" />
+    <circle cx="15" cy="50" r="2" fill="white" />
 
-      {/* Top-left diamond */}
-      <path d="M40,20 L50,30 L40,40 L30,30 Z" />
-    </g>
+    <circle cx="50" cy="25" r="1.5" fill="white" />
+    <circle cx="75" cy="50" r="1.5" fill="white" />
+    <circle cx="50" cy="75" r="1.5" fill="white" />
+    <circle cx="25" cy="50" r="1.5" fill="white" />
 
-    {/* White dots in the center of each diamond */}
-    <g fill="white">
-      <circle cx="50" cy="50" r="2" />
-      <circle cx="50" cy="20" r="2" />
-      <circle cx="70" cy="50" r="2" />
-      <circle cx="50" cy="80" r="2" />
-      <circle cx="30" cy="50" r="2" />
-      <circle cx="60" cy="30" r="2" />
-      <circle cx="60" cy="70" r="2" />
-      <circle cx="40" cy="70" r="2" />
-      <circle cx="40" cy="30" r="2" />
-    </g>
+    {/* Center dot */}
+    <circle cx="50" cy="50" r="3" fill="white" />
   </svg>
 )
 
