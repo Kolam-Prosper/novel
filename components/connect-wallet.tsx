@@ -2,7 +2,7 @@
 
 import { useAccount, useConnect, useDisconnect } from "wagmi"
 import { injected } from "wagmi/connectors"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 const styles = {
   button: {
@@ -66,13 +66,35 @@ export function ConnectWallet() {
   const { connect } = useConnect()
   const { disconnect } = useDisconnect()
   const [isHovered, setIsHovered] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  if (isConnected) {
+  // This effect runs only on the client after hydration
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Helper function to format address
+  function formatAddress(address: string): string {
+    if (!address) return ""
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  // If not mounted yet, render a placeholder with the same structure
+  // as the disconnected state to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <button style={styles.button} disabled>
+        Connect Wallet
+      </button>
+    )
+  }
+
+  if (isConnected && address) {
     return (
       <div style={styles.container}>
         <div style={styles.addressContainer}>
           <div style={styles.indicator}></div>
-          <span style={styles.address}>{formatAddress(address || "")}</span>
+          <span style={styles.address}>{formatAddress(address)}</span>
         </div>
         <button
           onClick={() => disconnect()}
@@ -102,11 +124,5 @@ export function ConnectWallet() {
       Connect Wallet
     </button>
   )
-}
-
-// Helper function to format address
-function formatAddress(address: string): string {
-  if (!address) return ""
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
