@@ -1,11 +1,13 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ConnectWallet } from "@/components/connect-wallet"
 
 // Import icons
-import { LayoutDashboard, ShoppingCart, Coins, PiggyBank, Banknote } from "lucide-react"
+import { LayoutDashboard, ShoppingCart, Coins, PiggyBank, Banknote, ExternalLink } from "lucide-react"
 
 const styles = {
   sidebar: {
@@ -127,10 +129,17 @@ const KolamLogo = () => (
   </svg>
 )
 
+// Define proper types for nav items
+type NavItem = {
+  path: string
+  label: string
+  icon: React.ElementType
+}
+
 export function Sidebar() {
   const pathname = usePathname()
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/buy-assets", label: "Buy Assets", icon: ShoppingCart },
     { path: "/staking", label: "Staking", icon: Coins },
@@ -151,8 +160,8 @@ export function Sidebar() {
 
       <nav style={styles.nav}>
         <ul style={styles.navList}>
-          {navItems.map((item) => (
-            <li key={item.path} style={styles.navItem}>
+          {navItems.map((item, index) => (
+            <li key={item.path + index} style={styles.navItem}>
               <Link
                 href={item.path}
                 style={{
@@ -176,6 +185,36 @@ export function Sidebar() {
               </Link>
             </li>
           ))}
+
+          {/* Add the homepage link as a separate item */}
+          <li style={styles.navItem}>
+            <a
+              href="https://www.kol.am"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                padding: "0.75rem 1rem",
+                color: "#999999",
+                textDecoration: "none",
+                transition: "all 0.2s",
+                borderLeft: "3px solid transparent",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#1a1a1a"
+                e.currentTarget.style.color = "#ffffff"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent"
+                e.currentTarget.style.color = "#999999"
+              }}
+            >
+              <ExternalLink style={{ width: "1.25rem", height: "1.25rem" }} />
+              <span>Return to Homepage</span>
+            </a>
+          </li>
         </ul>
       </nav>
 
