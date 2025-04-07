@@ -132,7 +132,7 @@ const nftStakingVaultABI = [
 // Token ID ranges to check - Updated as requested
 const TBOND_ID_RANGE = { start: 1, end: 40 }
 const PROPERTY_DEED_ID_RANGE = { start: 1000, end: 1050 }
-const BATCH_SIZE = 10
+// const BATCH_SIZE = 10  // Commented out as it's not used
 
 // Lock duration options in days
 const LOCK_DURATIONS = [
@@ -178,19 +178,28 @@ interface StatusMessage {
 }
 
 // Helper function to extract error messages from contract errors
-function handleContractError(error: any): string {
+function handleContractError(error: unknown): string {
   // For user rejected transactions
-  if (error?.code === 4001 || error?.message?.includes("user rejected")) {
+  if (
+    (error as { code?: number })?.code === 4001 ||
+    (error as { message?: string })?.message?.includes("user rejected")
+  ) {
     return "Transaction was rejected by the user."
   }
 
   // For staking errors
-  if (error?.message?.includes("execution reverted") && error?.message?.includes("stakeNFT")) {
+  if (
+    (error as { message?: string })?.message?.includes("execution reverted") &&
+    (error as { message?: string })?.message?.includes("stakeNFT")
+  ) {
     return "Transaction failed. This could be due to:\n- The NFT may already be staked\n- You may not have permission to stake this NFT\n- The contract may be paused or have reached its limit\n\nPlease try again with a different NFT or contact support."
   }
 
   // For unstaking errors
-  if (error?.message?.includes("execution reverted") && error?.message?.includes("unstakeNFT")) {
+  if (
+    (error as { message?: string })?.message?.includes("execution reverted") &&
+    (error as { message?: string })?.message?.includes("unstakeNFT")
+  ) {
     return "Transaction failed. This could be due to:\n- The NFT may not be staked\n- The lock period may not have ended yet\n- The contract may be paused\n\nPlease verify the NFT status and try again later."
   }
 
