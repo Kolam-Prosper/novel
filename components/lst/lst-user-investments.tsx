@@ -135,7 +135,7 @@ const styles = {
 }
 
 export function LstUserInvestments() {
-  const [investments, setInvestments] = useState(sampleInvestments)
+  const [investments /* , setInvestments */] = useState(sampleInvestments)
   const [isConnected, setIsConnected] = useState(false)
 
   // Check if wallet is connected
@@ -166,7 +166,7 @@ export function LstUserInvestments() {
   if (investments.length === 0) {
     return (
       <div style={styles.notConnectedContainer}>
-        <p style={styles.notConnectedText}>You don't have any active investments yet</p>
+        <p style={styles.notConnectedText}>You don&apos;t have any active investments yet</p>
         <p style={{ color: "#a0aec0" }}>Browse the available projects below to start investing</p>
       </div>
     )

@@ -67,7 +67,7 @@ export function LstStakingForm() {
         window.ethereum.removeListener("accountsChanged", () => {})
       }
     }
-  }, [])
+  }, [lstService])
 
   // Handle staking
   const handleStake = async (e: React.FormEvent) => {

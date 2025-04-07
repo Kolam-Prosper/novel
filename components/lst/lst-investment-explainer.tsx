@@ -26,7 +26,7 @@ const styles = {
   },
   list: {
     listStyleType: "decimal",
-    listStylePosition: "inside" as "inside", // Fixed: added type assertion
+    listStylePosition: "inside" as const,
     color: "#d1d5db",
     marginLeft: "1rem",
   },
@@ -59,3 +59,4 @@ export function LstInvestmentExplainer() {
     </div>
   )
 }
+
