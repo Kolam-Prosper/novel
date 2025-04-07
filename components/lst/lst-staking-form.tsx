@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { LstTokenService } from "@/services/lst-token-service"
 
 export function LstStakingForm() {
@@ -14,9 +14,9 @@ export function LstStakingForm() {
   const [isConnected, setIsConnected] = useState(false)
   const [account, setAccount] = useState<string | null>(null)
 
-  // Initialize service with T-bond contract address
-  const contractAddresses = LstTokenService.getContractAddresses()
-  const lstService = new LstTokenService(contractAddresses.tbond || "")
+  // Initialize service with T-bond contract address using useMemo to prevent recreation on every render
+  const contractAddresses = useMemo(() => LstTokenService.getContractAddresses(), [])
+  const lstService = useMemo(() => new LstTokenService(contractAddresses.tbond || ""), [contractAddresses.tbond])
 
   // Check connection and get balance on mount
   useEffect(() => {
