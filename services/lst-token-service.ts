@@ -114,6 +114,7 @@ export class LstTokenService {
         functionName: "stake",
         args: [parseEther(amount)],
         account: this.account,
+        chain: mainnet, // Added chain parameter
       })
 
       // Wait for transaction to be mined
@@ -140,6 +141,7 @@ export class LstTokenService {
         functionName: "unstake",
         args: [parseEther(amount)],
         account: this.account,
+        chain: mainnet, // Added chain parameter
       })
 
       // Wait for transaction to be mined
@@ -185,6 +187,7 @@ export class LstTokenService {
         functionName: "claimRewards",
         args: [],
         account: this.account,
+        chain: mainnet, // Added chain parameter
       })
 
       // Wait for transaction to be mined
@@ -207,4 +210,3 @@ export class LstTokenService {
     }
   }
 }
-
