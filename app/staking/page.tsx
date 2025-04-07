@@ -836,7 +836,7 @@ export default function Staking() {
                 args: [stakingId],
               })) as [bigint, bigint, bigint, bigint, bigint, bigint, boolean]
 
-              const [collectionId, tokenId, amount, value, lockPeriodIndex, lockEndTime, released] = details
+              const [collectionId, tokenId, value, lockPeriodIndex, lockEndTime, released] = details
 
               if (!released) {
                 // Determine contract address based on collection ID
