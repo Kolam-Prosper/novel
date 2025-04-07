@@ -1,46 +1,46 @@
-"use client"
+import { LstInvestmentExplainer } from "@/components/lst/lst-investment-explainer"
+import { LstProjectsTable } from "@/components/lst/lst-projects-table"
+import { LstUserInvestments } from "@/components/lst/lst-user-investments"
 
-export default function LST() {
+const styles = {
+  container: {
+    padding: "2rem 1rem",
+  },
+  heading: {
+    fontSize: "1.875rem",
+    fontWeight: "bold",
+    color: "#ffffff",
+    marginBottom: "1.5rem",
+  },
+  section: {
+    marginTop: "3rem",
+  },
+  sectionHeading: {
+    fontSize: "1.5rem",
+    fontWeight: "bold",
+    color: "#ffffff",
+    marginBottom: "1.5rem",
+  },
+}
+
+export default function LstPage() {
   return (
-    <div
-      style={{
-        maxWidth: "1200px",
-        margin: "0 auto",
-        padding: "4rem 1rem",
-        textAlign: "center",
-        color: "#ffffff",
-      }}
-    >
-      <h1
-        style={{
-          fontSize: "2rem",
-          fontWeight: "bold",
-          marginBottom: "1.5rem",
-        }}
-      >
-        LST Page
-      </h1>
-      <div
-        style={{
-          backgroundColor: "#111111",
-          borderRadius: "0.5rem",
-          border: "1px solid #222222",
-          padding: "3rem",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            fontSize: "1.5rem",
-            marginBottom: "1rem",
-          }}
-        >
-          🔄 Updating...
-        </div>
-        <p style={{ color: "#999999" }}>This page is currently being updated. Please check back later.</p>
+    <div style={styles.container}>
+      <h1 style={styles.heading}>LST Investment Opportunities (Example data not Live)</h1>
+
+      {/* Explainer section */}
+      <LstInvestmentExplainer />
+
+      {/* User investments section */}
+      <div style={styles.section}>
+        <h2 style={styles.sectionHeading}>Your Investment Portfolio</h2>
+        <LstUserInvestments />
+      </div>
+
+      {/* Projects table */}
+      <div style={styles.section}>
+        <h2 style={styles.sectionHeading}>Available Projects</h2>
+        <LstProjectsTable />
       </div>
     </div>
   )

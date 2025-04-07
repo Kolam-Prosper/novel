@@ -1,13 +1,21 @@
 "use client"
 
-import type React from "react"
-
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ConnectWallet } from "@/components/connect-wallet"
+import { useState } from "react"
 
 // Import icons
-import { LayoutDashboard, ShoppingCart, Coins, PiggyBank, Banknote, ExternalLink } from "lucide-react"
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Coins,
+  PiggyBank,
+  Banknote,
+  ExternalLink,
+  Plus,
+  AlertCircle,
+} from "lucide-react"
 
 const styles = {
   sidebar: {
@@ -84,6 +92,46 @@ const styles = {
     padding: "1rem",
     borderTop: "1px solid #222222",
   },
+  networkButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "0.5rem",
+    backgroundColor: "#1a1a1a",
+    color: "#ffffff",
+    border: "1px solid #333333",
+    borderRadius: "0.375rem",
+    padding: "0.5rem",
+    cursor: "pointer",
+    width: "100%",
+    marginBottom: "0.75rem",
+    transition: "all 0.2s",
+  },
+  networkButtonHover: {
+    backgroundColor: "#222222",
+    border: "1px solid #ff6b00", // Use full shorthand instead of just borderColor
+  },
+  notification: {
+    position: "fixed" as const,
+    bottom: "1rem",
+    right: "1rem",
+    padding: "0.75rem 1rem",
+    borderRadius: "0.375rem",
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    zIndex: 100,
+    maxWidth: "20rem",
+    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+  },
+  successNotification: {
+    backgroundColor: "#065f46",
+    color: "#ffffff",
+  },
+  errorNotification: {
+    backgroundColor: "#7f1d1d",
+    color: "#ffffff",
+  },
 }
 
 // Inline SVG Kolam pattern
@@ -129,23 +177,62 @@ const KolamLogo = () => (
   </svg>
 )
 
-// Define proper types for nav items
-type NavItem = {
-  path: string
-  label: string
-  icon: React.ElementType
-}
-
 export function Sidebar() {
   const pathname = usePathname()
+  const [isHoveredNetwork, setIsHoveredNetwork] = useState(false)
+  const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
-  const navItems: NavItem[] = [
+  const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/buy-assets", label: "Buy Assets", icon: ShoppingCart },
     { path: "/staking", label: "Staking", icon: Coins },
     { path: "/lend-borrow", label: "Lend/Borrow", icon: PiggyBank },
     { path: "/lst", label: "LST", icon: Banknote },
   ]
+
+  // Function to add Unichain Sepolia network to MetaMask
+  const addUnichainSepoliaNetwork = async () => {
+    if (typeof window === "undefined" || !window.ethereum) {
+      setNotification({
+        type: "error",
+        message: "MetaMask is not installed. Please install MetaMask to add the network.",
+      })
+      setTimeout(() => setNotification(null), 5000)
+      return
+    }
+
+    try {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: "0x515", // Chain ID 1301 in hexadecimal
+            chainName: "Unichain Sepolia",
+            nativeCurrency: {
+              name: "ETH",
+              symbol: "ETH",
+              decimals: 18,
+            },
+            rpcUrls: ["https://sepolia.unichain.org"], // Correct RPC URL
+            blockExplorerUrls: ["https://sepolia.uniscan.org"], // Using a placeholder explorer URL, update if needed
+          },
+        ],
+      })
+
+      setNotification({
+        type: "success",
+        message: "Unichain Sepolia network added successfully!",
+      })
+      setTimeout(() => setNotification(null), 5000)
+    } catch (error) {
+      console.error("Error adding Unichain Sepolia network:", error)
+      setNotification({
+        type: "error",
+        message: "Failed to add Unichain Sepolia network. Please try again.",
+      })
+      setTimeout(() => setNotification(null), 5000)
+    }
+  }
 
   return (
     <aside style={styles.sidebar}>
@@ -186,7 +273,7 @@ export function Sidebar() {
             </li>
           ))}
 
-          {/* Add the homepage link as a separate item */}
+          {/* Homepage Link */}
           <li style={styles.navItem}>
             <a
               href="https://www.kol.am"
@@ -219,8 +306,33 @@ export function Sidebar() {
       </nav>
 
       <div style={styles.footer}>
+        <button
+          style={{
+            ...styles.networkButton,
+            ...(isHoveredNetwork ? styles.networkButtonHover : {}),
+          }}
+          onClick={addUnichainSepoliaNetwork}
+          onMouseEnter={() => setIsHoveredNetwork(true)}
+          onMouseLeave={() => setIsHoveredNetwork(false)}
+        >
+          <Plus size={16} />
+          <span>Add Unichain Sepolia</span>
+        </button>
         <ConnectWallet />
       </div>
+
+      {/* Notification */}
+      {notification && (
+        <div
+          style={{
+            ...styles.notification,
+            ...(notification.type === "success" ? styles.successNotification : styles.errorNotification),
+          }}
+        >
+          {notification.type === "success" ? <Plus size={16} /> : <AlertCircle size={16} />}
+          <span>{notification.message}</span>
+        </div>
+      )}
     </aside>
   )
 }
